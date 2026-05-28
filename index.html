@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="lt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Super Mergaičių Nuotykis 🐾</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{background:#0d0d2b;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;font-family:Arial,sans-serif;overflow:hidden;touch-action:none}#gw{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 0 40px rgba(100,200,255,.5)}canvas{display:block}#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;pointer-events:none;z-index:10}.hb{background:rgba(0,0,80,.8);border:2px solid rgba(100,180,255,.7);border-radius:12px;padding:5px 12px;color:#fff;font-size:18px;font-weight:700;display:flex;align-items:center;gap:5px}#ov{position:absolute;inset:0;background:rgba(0,0,50,.92);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;border-radius:16px}#ov h1{color:gold;font-size:36px;text-shadow:0 0 20px gold;margin-bottom:12px}#ov p{color:#cce;font-size:16px;margin:5px 0;text-align:center;max-width:400px}#sb{margin-top:20px;padding:13px 42px;font-size:21px;border:none;border-radius:36px;background:linear-gradient(135deg,#ff6baa,#c44be3);color:#fff;cursor:pointer;font-weight:700;box-shadow:0 6px 22px rgba(196,75,227,.5)}#sb:hover{transform:scale(1.06)}#mob{position:absolute;bottom:10px;left:0;right:0;display:flex;justify-content:space-between;padding:0 16px;pointer-events:none;z-index:10}.cb{width:68px;height:68px;border-radius:50%;background:rgba(0,80,200,.75);border:2px solid rgba(100,160,255,.8);color:#fff;font-size:26px;cursor:pointer;pointer-events:all;display:flex;align-items:center;justify-content:center;user-select:none}
+</style>
+</head>
+<body>
+<div id="gw">
+  <canvas id="c"></canvas>
+  <div id="hud"><div class="hb">❤️ <span id="lv">3</span></div><div class="hb">⭐ <span id="sc">0</span></div><div class="hb" id="lvl">Level 1</div></div>
+  <div id="mob"><div style="display:flex;gap:10px;align-items:flex-end;pointer-events:none"><button class="cb" id="lb">◀</button><button class="cb" id="rb">▶</button></div><button class="cb" id="jb" style="width:76px;height:76px;font-size:30px">▲</button></div>
+  <div id="ov">
+    <h1>🐾 Super Mergaičių Nuotykis</h1>
+    <p>Rink auksinius kanopėlių taškus!<br>Šokinėk per kliūtis ir nugalėk drakoną!<br><b>TARPAS / ▲</b> šokti &nbsp;|&nbsp; ◀▶ judėti<br>Dvigubas šuolis ore!</p>
+    <p style="font-size:13px;color:#99f;margin-top:8px" id="lt">⏳ Kraunami AI personažai...</p>
+    <button id="sb" onclick="startGame()">🎮 Pradėti!</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('c'),cx=cv.getContext('2d');
+const W=Math.min(window.innerWidth,820),H=Math.min(window.innerHeight*.88,500);
+cv.width=W;cv.height=H;
+const gw=document.getElementById('gw');gw.style.width=W+'px';gw.style.height=H+'px';
+const imgs={};
+function loadImg(k,url){return new Promise(res=>{const i=new Image();i.crossOrigin='anonymous';i.onload=()=>{imgs[k]=i;res()};i.onerror=()=>res();i.src=url})}
+const PA='https://image.pollinations.ai/prompt/';
+async function loadAll(){
+  await Promise.all([
+    loadImg('g1',PA+encodeURIComponent('cute chibi girl pink adidas shirt white pants running jumping side view transparent background pixar cartoon game sprite')+'?width=128&height=128&nologo=true&seed=1'),
+    loadImg('g2',PA+encodeURIComponent('cute chibi girl purple hoodie white pants running jumping side view transparent background pixar cartoon game sprite')+'?width=128&height=128&nologo=true&seed=2'),
+    loadImg('dog',PA+encodeURIComponent('white fluffy bichon frise dog superhero blue cape red mask running side view transparent background cartoon game')+'?width=128&height=128&nologo=true&seed=3'),
+    loadImg('dr',PA+encodeURIComponent('small cute green dragon flying fire breathing cartoon game enemy side view transparent background')+'?width=128&height=128&nologo=true&seed=4'),
+    loadImg('co',PA+encodeURIComponent('gold coin paw print shiny cartoon 2d transparent background')+'?width=64&height=64&nologo=true&seed=5'),
+    loadImg('bg0','https://image.pollinations.ai/prompt/'+encodeURIComponent('fantasy platformer background green hills blue sky castle cartoon wide')+'?width=820&height=500&nologo=true&seed=10'),
+    loadImg('bg1','https://image.pollinations.ai/prompt/'+encodeURIComponent('platformer background lava cave underground orange glow cartoon wide')+'?width=820&height=500&nologo=true&seed=20'),
+    loadImg('bg2','https://image.pollinations.ai/prompt/'+encodeURIComponent('platformer background sky clouds floating islands rainbow castle cartoon wide')+'?width=820&height=500&nologo=true&seed=30'),
+  ]);
+  const lt=document.getElementById('lt');if(lt)lt.textContent='Personažai paruošti! ✓';
+}
+let run=false,score=0,lives=3,level=1,camX=0,jumpQ=false;
+const WW=W*4,keys={};
+const chars=['g1','g2','dog'];
+const pl={x:100,y:300,w:52,h:64,vx:0,vy:0,og:false,dj:false,inv:0,ci:0,rt:true};
+function mkP(){
+  const ps=[];
+  for(let x=0;x<WW;x+=100)ps.push({x,y:H-55,w:100,h:55,t:'g'});
+  [380,800,1260,1720,2180,2660,3120].forEach(gx=>{
+    for(let x=gx;x<gx+120;x+=100){const i=ps.findIndex(p=>p.t==='g'&&Math.abs(p.x-x)<60);if(i>=0)ps.splice(i,1)}
+  });
+  [{x:260,y:H-155,w:110},{x:460,y:H-210,w:90},{x:620,y:H-165,w:100},{x:840,y:H-235,w:90},
+   {x:1000,y:H-175,w:110},{x:1160,y:H-255,w:100},{x:1400,y:H-200,w:90},{x:1560,y:H-270,w:110},
+   {x:1780,y:H-215,w:95},{x:1970,y:H-165,w:100},{x:2170,y:H-255,w:90},{x:2380,y:H-195,w:110},
+   {x:2580,y:H-275,w:100},{x:2800,y:H-220,w:90},{x:2970,y:H-175,w:110},
+   {x:3160,y:H-258,w:95},{x:3390,y:H-210,w:100},{x:3570,y:H-165,w:90}
+  ].forEach(f=>ps.push({x:f.x,y:f.y,w:f.w,h:18,t:'f'}));
+  return ps;
+}
+function mkC(ps){
+  const cs=[];
+  ps.filter(p=>p.t==='f').forEach(p=>{const n=Math.max(1,Math.floor(p.w/32));for(let i=0;i<n;i++)cs.push({x:p.x+16+i*32,y:p.y-34,got:false,a:Math.random()*6.28})});
+  for(let x=120;x<WW-200;x+=180)cs.push({x,y:H-95,got:false,a:Math.random()*6.28});
+  return cs;
+}
+function mkS(){return[490,530,870,910,1290,1330,1740,1780,2200,2240,2700,2740,3200,3240].map(x=>({x,y:H-73,w:26,h:22}))}
+function mkE(){return Array.from({length:10},(_,i)=>({x:620+i*330,y:H-120,w:58,h:58,vx:(i%2?1:-1)*1.6,sx:620+i*330,rng:110,alive:true}))}
+let plats=[],coins=[],spikes=[],enemies=[],parts=[];
+function burst(x,y,col,n){for(let i=0;i<n;i++){const a=Math.random()*6.28,s=2+Math.random()*4;parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-2,l:1,c:col,r:3+Math.random()*5})}}
+function reset(){pl.x=100;pl.y=300;pl.vx=0;pl.vy=0;pl.og=false;pl.dj=false;pl.inv=0;camX=0;parts=[];plats=mkP();coins=mkC(plats);spikes=mkS();enemies=mkE()}
+function upHUD(){document.getElementById('sc').textContent=score;document.getElementById('lv').textContent=lives;document.getElementById('lvl').textContent='Lv '+level}
+function startGame(){document.getElementById('ov').style.display='none';score=0;lives=3;level=1;pl.ci=0;reset();upHUD();run=true;requestAnimationFrame(loop)}
+function showEnd(t,m){run=false;const o=document.getElementById('ov');o.style.display='flex';o.innerHTML='<h1>'+t+'</h1><p>'+m+'</p><button id="sb" onclick="score=0;lives=3;level=1;pl.ci=0;reset();upHUD();document.getElementById('ov').style.display='none';run=true;requestAnimationFrame(loop)">🎮 Žaisti vėl!</button>'}
+const G=0.58,JF=-13.5,SPD=4.2,MF=15;
+function doJump(){if(pl.og){pl.vy=JF;pl.og=false;burst(pl.x+pl.w/2,pl.y+pl.h,'#fff',6)}else if(!pl.dj){pl.vy=JF*.82;pl.dj=true;burst(pl.x+pl.w/2,pl.y+pl.h,'#aaf',8)}}
+let lt=0;
+function loop(ts){if(!run)return;update(ts);draw();requestAnimationFrame(loop)}
+function update(ts){
+  const dt=Math.min((ts-lt)/16.67,3);lt=ts;
+  if(keys.l){pl.vx-=1.6*dt;pl.rt=false}else if(keys.r){pl.vx+=1.6*dt;pl.rt=true}else pl.vx*=.78;
+  pl.vx=Math.max(-SPD,Math.min(SPD,pl.vx));
+  if(jumpQ){doJump();jumpQ=false}
+  pl.vy=Math.min(pl.vy+G*dt,MF);pl.x+=pl.vx*dt;pl.y+=pl.vy*dt;if(pl.x<0)pl.x=0;
+  const tc=pl.x-W*.33;camX+=(tc-camX)*.12;camX=Math.max(0,Math.min(WW-W,camX));
+  pl.og=false;
+  for(const p of plats){if(pl.x+pl.w>p.x&&pl.x<p.x+p.w&&pl.y+pl.h>p.y&&pl.y+pl.h<p.y+p.h+12&&pl.vy>=0){pl.y=p.y-pl.h;pl.vy=0;pl.og=true;pl.dj=false}}
+  if(pl.y>H+60){lives--;if(lives<=0){showEnd('💀 Žaidimas baigtas!','Surinkai '+score+' taškų! ⭐');return}pl.x=100;pl.y=200;pl.vx=0;pl.vy=0;pl.inv=90;upHUD()}
+  coins.forEach(c=>{c.a+=.06;if(!c.got&&Math.abs(pl.x+pl.w/2-c.x)<22&&Math.abs(pl.y+pl.h/2-c.y)<22){c.got=true;score+=10;burst(c.x,c.y,'#ffd700',10);upHUD()}});
+  enemies.forEach(e=>{
+    if(!e.alive)return;e.x+=e.vx;if(e.x<e.sx-e.rng||e.x>e.sx+e.rng)e.vx*=-1;
+    if(pl.inv<=0&&pl.x+pl.w-6>e.x&&pl.x+6<e.x+e.w&&pl.y+pl.h>e.y&&pl.y<e.y+e.h){
+      if(pl.vy>.5&&pl.y+pl.h<e.y+28){e.alive=false;pl.vy=JF*.5;score+=50;burst(e.x+e.w/2,e.y,'#f60',12);upHUD()}
+      else{lives--;pl.inv=100;pl.vy=-8;upHUD();if(lives<=0){showEnd('💀 Žaidimas baigtas!','Surinkai '+score+' taškų! ⭐');return}}
+    }
+  });
+  if(pl.inv<=0){for(const s of spikes){if(pl.x+pl.w-8>s.x&&pl.x+8<s.x+s.w&&pl.y+pl.h>s.y&&pl.y+pl.h<s.y+s.h+8){lives--;pl.inv=100;pl.vy=-9;upHUD();if(lives<=0){showEnd('💀 Žaidimas baigtas!','Surinkai '+score+' taškų! ⭐');return}break}}}
+  if(pl.inv>0)pl.inv--;
+  for(let i=parts.length-1;i>=0;i--){const p=parts[i];p.x+=p.vx;p.y+=p.vy;p.vy+=.22;p.l-=.032;if(p.l<=0)parts.splice(i,1)}
+  if(pl.x>WW-150){level++;pl.ci=(pl.ci+1)%3;score+=200;burst(W/2+camX,H/2,'#ffd700',25);reset();upHUD()}
+}
+function draw(){
+  cx.clearRect(0,0,W,H);
+  const bk=level<=1?'bg0':level<=2?'bg1':'bg2';
+  if(imgs[bk])cx.drawImage(imgs[bk],0,0,W,H);
+  else{const sk=cx.createLinearGradient(0,0,0,H);sk.addColorStop(0,'#87CEEB');sk.addColorStop(.65,'#e0f7fa');sk.addColorStop(1,'#4caf50');cx.fillStyle=sk;cx.fillRect(0,0,W,H)}
+  plats.forEach(p=>{const sx=p.x-camX;if(sx+p.w<0||sx>W)return;cx.fillStyle=p.t==='g'?'#5d4037':'#388e3c';cx.fillRect(sx,p.y,p.w,p.h);cx.fillStyle=p.t==='g'?'#795548':'#66bb6a';cx.fillRect(sx,p.y,p.w,p.t==='g'?10:4)});
+  spikes.forEach(s=>{const sx=s.x-camX;if(sx<-40||sx>W+40)return;cx.fillStyle='#9e9e9e';cx.beginPath();cx.moveTo(sx,s.y+s.h);cx.lineTo(sx+s.w/2,s.y);cx.lineTo(sx+s.w,s.y+s.h);cx.closePath();cx.fill()});
+  coins.forEach(c=>{if(c.got)return;const sx=c.x-camX;if(sx<-30||sx>W+30)return;const b=Math.sin(c.a)*4;if(imgs.co){cx.save();cx.translate(sx,c.y+b);const s2=.9+Math.sin(c.a)*.1;cx.scale(s2,s2);cx.drawImage(imgs.co,-15,-15,30,30);cx.restore()}else{cx.save();cx.fillStyle='#ffd700';cx.shadowColor='#ffd700';cx.shadowBlur=12;cx.beginPath();cx.arc(sx,c.y+b,12,0,6.28);cx.fill();cx.restore()}});
+  enemies.forEach(e=>{if(!e.alive)return;const sx=e.x-camX;if(sx<-80||sx>W+80)return;if(imgs.dr){cx.save();if(e.vx<0){cx.translate(sx+e.w,e.y);cx.scale(-1,1);cx.drawImage(imgs.dr,0,0,e.w,e.h)}else cx.drawImage(imgs.dr,sx,e.y,e.w,e.h);cx.restore()}else{cx.fillStyle='#e53935';cx.fillRect(sx,e.y,e.w,e.h);cx.font='32px sans-serif';cx.textAlign='center';cx.fillText('🐉',sx+e.w/2,e.y+e.h-4)}});
+  const px=pl.x-camX,al=pl.inv>0?(Math.sin(pl.inv*.5)*.5+.5):1;cx.globalAlpha=al;
+  const ck=chars[pl.ci];
+  if(imgs[ck]){cx.save();if(!pl.rt){cx.translate(px+pl.w,pl.y);cx.scale(-1,1);cx.drawImage(imgs[ck],0,0,pl.w,pl.h)}else cx.drawImage(imgs[ck],px,pl.y,pl.w,pl.h);cx.restore()}
+  else{cx.fillStyle=pl.ci===0?'#ff4081':pl.ci===1?'#9c27b0':'#fff';cx.fillRect(px,pl.y,pl.w,pl.h);cx.font='30px sans-serif';cx.textAlign='center';cx.fillText(pl.ci===2?'🐶':'👧',px+pl.w/2,pl.y+pl.h-4)}
+  cx.globalAlpha=1;
+  parts.forEach(p=>{cx.save();cx.globalAlpha=p.l;cx.fillStyle=p.c;cx.shadowColor=p.c;cx.shadowBlur=8;cx.beginPath();cx.arc(p.x-camX,p.y,p.r*p.l,0,6.28);cx.fill();cx.restore()});
+  const fx=WW-180-camX;if(fx>-60&&fx<W+60){cx.fillStyle='#4caf50';cx.fillRect(fx,H-155,7,100);cx.fillStyle='#f44336';cx.fillRect(fx+7,H-155,44,30);cx.fillStyle='#fff';cx.font='bold 13px Arial';cx.textAlign='left';cx.fillText('FINISH!',fx+9,H-136)}
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowLeft'||e.key==='a')keys.l=true;
+  if(e.key==='ArrowRight'||e.key==='d')keys.r=true;
+  if((e.key===' '||e.key==='ArrowUp'||e.key==='w')&&run){e.preventDefault();jumpQ=true}
+});
+document.addEventListener('keyup',e=>{if(e.key==='ArrowLeft'||e.key==='a')keys.l=false;if(e.key==='ArrowRight'||e.key==='d')keys.r=false});
+const lb=document.getElementById('lb'),rb=document.getElementById('rb'),jb=document.getElementById('jb');
+['touchstart','mousedown'].forEach(ev=>{lb.addEventListener(ev,e=>{e.preventDefault();keys.l=true});rb.addEventListener(ev,e=>{e.preventDefault();keys.r=true});jb.addEventListener(ev,e=>{e.preventDefault();jumpQ=true})});
+['touchend','mouseup'].forEach(ev=>{lb.addEventListener(ev,e=>{e.preventDefault();keys.l=false});rb.addEventListener(ev,e=>{e.preventDefault();keys.r=false})});
+loadAll();
+</script>
+</body>
+</html>
